@@ -1,5 +1,6 @@
 ﻿//using AntaresDiagnostics;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Diagnostics;
@@ -24,8 +25,8 @@ namespace SqlReadOnlyUtils
 {
     public class SqlReadOnlyConnection : IDisposable
     {
-        static Dictionary<string, string> SqlConnectionStrings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        static Dictionary<string, SqlConnection> SqlConnections = new Dictionary<string, SqlConnection>(StringComparer.OrdinalIgnoreCase);
+        static ConcurrentDictionary<string, string> SqlConnectionStrings = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        static ConcurrentDictionary<string, SqlConnection> SqlConnections = new ConcurrentDictionary<string, SqlConnection>(StringComparer.OrdinalIgnoreCase);
         //static Lazy<AntaresDiagnosticsCommon> AntaresDiagnosticsCommon = new Lazy<AntaresDiagnosticsCommon>(() =>
         //{
         //    var diagnostics = new AntaresDiagnosticsCommon();
@@ -54,6 +55,7 @@ namespace SqlReadOnlyUtils
             if (!SqlConnections.TryGetValue(connStr, out _connection))
             {
                 var connection = new SqlConnection(connStr);
+                connection.Open();
                 SqlConnections[_connStr = connStr] = _connection = connection;
             }
         }
@@ -62,7 +64,9 @@ namespace SqlReadOnlyUtils
         {
             try
             {
-                return new SqlReadOnlyConnection(GetSqlConnectionString(stampName));
+                var connStr = GetSqlConnectionString(stampName);
+                if (!string.IsNullOrEmpty(connStr))
+                    return new SqlReadOnlyConnection(connStr);
             }
             catch (Exception ex)
             {
@@ -85,19 +89,19 @@ namespace SqlReadOnlyUtils
 
         public void Open()
         {
-            _connection.Open();
+            // connection is always open at Ctor time
         }
 
         public void Close()
         {
-            _connection.Close();
-            SqlConnections.Remove(_connStr);
+            SqlConnection unused;
+            SqlConnections.TryRemove(_connStr, out unused);
+            _connection.Dispose();
         }
 
         public void Dispose()
         {
-            _connection.Dispose();
-            SqlConnections.Remove(_connStr);
+            Close();
         }
 
         public static implicit operator SqlConnection(SqlReadOnlyConnection x)
@@ -226,6 +230,7 @@ namespace SqlReadOnlyUtils
             using (var ssp = new StashServiceProxy())
             {
                 string url = "https://test.secretstore.core.windows.net";
+                //string url = "https://test.secretstore.core.azure-test.net";
                 ssp.connect(url);
                 if (ssp.LastError != null)
                 {
@@ -346,7 +351,7 @@ namespace SqlReadOnlyUtils
                     var value = await httpResponseMessage.Content.ReadAsStringAsync();
                     if (!httpResponseMessage.IsSuccessStatusCode)
                     {
-                        var ex = new HttpException((int)httpResponseMessage.StatusCode, string.Format("Fail to send request to {0}. StatuCode: {1}", BaseAddress, httpResponseMessage.StatusCode));
+                        var ex = new HttpException((int)httpResponseMessage.StatusCode, string.Format("Fail to send request to {0}. StatuCod {1}", BaseAddress, httpResponseMessage.StatusCode));
                         ex.Data["Content"] = value;
                         if (httpResponseMessage.Headers.RetryAfter != null)
                         {
