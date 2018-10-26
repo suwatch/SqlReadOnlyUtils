@@ -229,8 +229,10 @@ namespace SqlReadOnlyUtils
         {
             using (var ssp = new StashServiceProxy())
             {
-                string url = "https://test.secretstore.core.windows.net";
-                //string url = "https://test.secretstore.core.azure-test.net";
+                //string url = "https://test.secretstore.core.windows.net";
+                string url = "https://test.secretstore.core.azure-test.net";
+                //string url = "https://test.secretstore.core.azure-test.net/CertSvc.svc";
+                //string url = "https://test-standby.secretstore.core.azure-test.net";
                 ssp.connect(url);
                 if (ssp.LastError != null)
                 {
@@ -276,8 +278,8 @@ namespace SqlReadOnlyUtils
                 AuthenticationContext authenticationContext = new AuthenticationContext(authority);
                 //if (this._cert == null)
                 {
-                    _authenticationToken = await authenticationContext.AcquireTokenAsync(BaseAddress, UserAuthAADClientId, 
-                        new Uri("http://wawshealth-client"), new PlatformParameters(PromptBehavior.Auto), 
+                    _authenticationToken = await authenticationContext.AcquireTokenAsync(BaseAddress, UserAuthAADClientId,
+                        new Uri("http://wawshealth-client"), new PlatformParameters(PromptBehavior.Auto),
                         UserIdentifier.AnyUser, "amr_values=mfa");
                 }
                 //else
